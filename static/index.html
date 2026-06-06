@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>作战室编排器 · 控制面板</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f5f5f5; color: #333; padding: 20px; }
+.container { max-width: 1000px; margin: 0 auto; }
+h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; color: #185FA5; }
+.subtitle { font-size: 13px; color: #888; margin-bottom: 20px; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.card { background: #fff; border-radius: 8px; padding: 16px; border: 1px solid #e8e8e8; }
+.card h2 { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: #333; }
+.card h2 .badge { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 10px; margin-left: 6px; font-weight: 400; }
+.badge-green { background: #E8F5E9; color: #2E7D32; }
+.badge-red { background: #FFEBEE; color: #C62828; }
+.badge-blue { background: #E3F2FD; color: #1565C0; }
+.badge-amber { background: #FFF8E1; color: #F57F17; }
+.endpoint { font-size: 12px; padding: 4px 0; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; }
+.endpoint:last-child { border: none; }
+.endpoint .method { font-weight: 600; color: #185FA5; width: 50px; }
+.endpoint .path { color: #555; }
+.endpoint .status { font-size: 11px; }
+.status-ok { color: #2E7D32; }
+.status-err { color: #C62828; }
+.full { grid-column: 1 / -1; }
+.state-bar { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
+.state-item { padding: 4px 12px; border-radius: 4px; font-size: 11px; color: #999; background: #f5f5f5; }
+.state-item.active { background: #185FA5; color: #fff; font-weight: 600; }
+.state-item.done { background: #E8F5E9; color: #2E7D32; }
+pre { background: #f9f9f9; padding: 10px; border-radius: 4px; font-size: 12px; overflow-x: auto; max-height: 200px; }
+button { background: #185FA5; color: #fff; border: none; padding: 6px 16px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+button:hover { background: #0C447C; }
+button:disabled { background: #ccc; cursor: default; }
+.row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+input { flex: 1; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; }
+@media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="container" id="app">
+  <h1>作战室编排器</h1>
+  <p class="subtitle">War Room Orchestrator · 事件驱动多智能体协作系统</p>
+
+  <div class="state-bar" id="stateBar">
+    <span class="state-item">blank</span>
+    <span class="state-item">topic</span>
+    <span class="state-item">framework</span>
+    <span class="state-item">writing</span>
+    <span class="state-item">review</span>
+    <span class="state-item">polish</span>
+    <span class="state-item">layout</span>
+    <span class="state-item">final</span>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>后端状态 <span class="badge" id="healthBadge">检查中...</span></h2>
+      <div class="endpoint"><span>服务</span><span id="healthService">-</span></div>
+      <div class="endpoint"><span>版本</span><span id="healthVersion">-</span></div>
+      <div class="endpoint"><span>时间</span><span id="healthTime">-</span></div>
+    </div>
+    <div class="card">
+      <h2>项目 <span class="badge badge-blue" id="projectCount">-</span></h2>
+      <div style="font-size:12px;color:#888;" id="projectList">加载中...</div>
+    </div>
+  </div>
+
+  <div class="card full">
+    <h2>工作台 (Workbench)</h2>
+    <div class="row">
+      <input id="projectInput" placeholder="输入项目ID（如 ai-writing-future）">
+      <button onclick="loadWorkbench()">加载</button>
+    </div>
+    <div id="workbenchContent" style="font-size:12px;color:#888;">输入项目ID后点击加载</div>
+  </div>
+
+  <div class="card full">
+    <h2>API 端点</h2>
+    <div id="endpointList">加载中...</div>
+  </div>
+
+  <div class="card full" style="text-align:center;font-size:11px;color:#bbb;">
+    数据来源: <a href="https://warroom.zeabur.app" target="_blank" style="color:#185FA5;">warroom.zeabur.app</a>
+  </div>
+</div>
+
+<script>
+const API = 'https://warroom.zeabur.app';
+
+async function getJSON(url) {
+  try {
+    const r = await fetch(url);
+    return await r.json();
+  } catch(e) {
+    return {error: e.message};
+  }
+}
+
+async function loadHealth() {
+  const d = await getJSON(API + '/health');
+  const badge = document.getElementById('healthBadge');
+  if (d.status === 'healthy') {
+    badge.textContent = '已连接';
+    badge.className = 'badge badge-green';
+  } else {
+    badge.textContent = '不可达';
+    badge.className = 'badge badge-red';
+  }
+  document.getElementById('healthService').textContent = d.service || '-';
+  document.getElementById('healthVersion').textContent = d.version || '-';
+  document.getElementById('healthTime').textContent = d.timestamp ? new Date(d.timestamp).toLocaleString() : '-';
+}
+
+async function loadProjects() {
+  const d = await getJSON(API + '/projects');
+  if (Array.isArray(d)) {
+    document.getElementById('projectCount').textContent = d.length + '个';
+    document.getElementById('projectList').innerHTML = d.length
+      ? d.map(p => `<div style="padding:2px 0">${p.id} <span style="color:#999;font-size:11px">${new Date(p.created_at).toLocaleDateString()}</span></div>`).join('')
+      : '<span style="color:#999">暂无项目</span>';
+  } else {
+    document.getElementById('projectList').innerHTML = `<span style="color:#C62828">${d.error || '加载失败'}</span>`;
+  }
+}
+
+async function loadEndpoints() {
+  const d = await getJSON(API + '/');
+  const list = document.getElementById('endpointList');
+  if (d.endpoints) {
+    list.innerHTML = Object.entries(d.endpoints).map(([k,v]) =>
+      `<div class="endpoint"><span class="method">${k}</span><span class="path">${v}</span></div>`
+    ).join('');
+  } else {
+    list.innerHTML = '<span style="color:#C62828">加载失败</span>';
+  }
+}
+
+async function loadWorkbench() {
+  const project = document.getElementById('projectInput').value.trim();
+  if (!project) return alert('请输入项目ID');
+  const d = await getJSON(API + '/workbench/' + encodeURIComponent(project));
+  const content = document.getElementById('workbenchContent');
+  if (d.error) {
+    content.innerHTML = `<span style="color:#C62828">${d.error}</span>`;
+    return;
+  }
+  content.innerHTML = `<pre>${JSON.stringify(d, null, 2)}</pre>`;
+  // 更新状态机
+  const state = d.state || 'blank';
+  const idx = ['blank','topic','framework','writing','review','polish','layout','final'].indexOf(state);
+  document.querySelectorAll('.state-item').forEach((el,i) => {
+    el.className = 'state-item';
+    if (i < idx) el.classList.add('done');
+    else if (i === idx) el.classList.add('active');
+  });
+}
+
+loadHealth();
+loadProjects();
+loadEndpoints();
+</script>
+</body>
+</html>

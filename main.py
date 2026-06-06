@@ -8,7 +8,7 @@ import os
 import json
 from datetime import datetime
 from pathlib import Path
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -48,7 +48,10 @@ def ensure_init():
 
 @app.route("/", methods=["GET"])
 def index():
-    """API 根路径入口"""
+    """根路径 - 根据 Accept 头返回 HTML 或 JSON"""
+    accept = request.headers.get("Accept", "")
+    if "text/html" in accept:
+        return send_from_directory(str(Path(__file__).parent / "static"), "index.html")
     return jsonify({
         "service": "war-room-orchestrator-backend",
         "version": "1.0",

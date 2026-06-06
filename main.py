@@ -7,6 +7,7 @@ Zeabur 部署：gunicorn main:app
 import os
 import json
 from datetime import datetime
+from pathlib import Path
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
@@ -25,13 +26,22 @@ from project_sandbox import SandboxRegistry
 
 sandbox_registry = SandboxRegistry()
 
-with app.app_context():
-    try:
-        init_db()
-        init_params()
-        print("[OK] Database initialized")
-    except Exception as e:
-        print(f"[WARN] DB init: {e}")
+# ── 延迟初始化（避免Zeabur模块加载时DB未就绪） ──────────
+_initialized = False
+
+@app.before_request
+def ensure_init():
+    global _initialized
+    if not _initialized:
+        try:
+            import os
+            os.makedirs(str(Path(__file__).parent / "data"), exist_ok=True)
+            init_db()
+            init_params()
+            _initialized = True
+            print("[OK] Database initialized")
+        except Exception as e:
+            print(f"[WARN] Deferred init failed: {e}")
 
 
 # ── 健康检查 ────────────────────────────────────────────

@@ -36,6 +36,32 @@ with app.app_context():
 
 # ── 健康检查 ────────────────────────────────────────────
 
+@app.route("/", methods=["GET"])
+def index():
+    """API 根路径入口"""
+    return jsonify({
+        "service": "war-room-orchestrator-backend",
+        "version": "1.0",
+        "status": "running",
+        "endpoints": {
+            "health": "/health",
+            "workbench": "/workbench/<project_id>",
+            "materials": "/materials",
+            "material_usage": "/materials/<card_id>/usage",
+            "projects": "/projects",
+            "project_archive": "/projects/<project_id>/archive",
+            "project_sandbox": "/projects/<project_id>/sandbox",
+            "params": "/params",
+            "param_detail": "/params/<name>",
+            "param_propose": "/params/<name>/propose",
+            "param_confirm": "/params/<name>/confirm",
+            "param_reset": "/params/<name>/reset",
+            "param_history": "/params/history",
+        },
+        "timestamp": datetime.utcnow().isoformat(),
+    })
+
+
 @app.route("/health", methods=["GET"])
 def health():
     """服务健康检查"""
